@@ -515,10 +515,6 @@ def modo_descubrir(ui: UI, provider, skip: bool = False, quality: str = "best") 
             ui._clear()
             mostrar_info_anilist(ui, seleccionado)
 
-            resp_buscar = ui.preguntar("🔍 Buscar este anime en providers? (y/n)")
-            if resp_buscar.lower() not in ("y", "s", "si", "sí"):
-                continue
-
             ui.info(f"Buscando '{seleccionado['titulo_romaji']}' en {provider.nombre}...")
             try:
                 resultados_provider = provider.buscar(seleccionado["titulo_romaji"])
@@ -554,10 +550,6 @@ def modo_descubrir(ui: UI, provider, skip: bool = False, quality: str = "best") 
 
             ui._clear()
             mostrar_info_anilist(ui, seleccionado)
-
-            resp_buscar = ui.preguntar("🔍 Buscar este anime en providers? (y/n)")
-            if resp_buscar.lower() not in ("y", "s", "si", "sí"):
-                continue
 
             ui.info(f"Buscando '{seleccionado['titulo_romaji']}' en {provider.nombre}...")
             try:
