@@ -121,6 +121,11 @@ def main():
         action="store_true",
         help="Modo debug: muestra logs detallados en stderr",
     )
+    parser.add_argument(
+        "--ios",
+        action="store_true",
+        help="Modo iOS: imprime URL para abrir en VLC (iSH + VLC)",
+    )
     args = parser.parse_args()
 
     setup_logging(debug=args.debug)
@@ -139,7 +144,7 @@ def main():
         if fallback_de:
             ui.warning(f"'{args.provider}' no responde, usando '{provider_key}'")
         provider = PROVIDERS[provider_key]
-        modo_continuar(ui, provider)
+        modo_continuar(ui, provider, ios=args.ios)
         return
 
     if args.busqueda:
@@ -148,7 +153,7 @@ def main():
             ui.warning(f"'{args.provider}' no responde, usando '{provider_key}'")
         provider = PROVIDERS[provider_key]
         ui.titulo(f"NEKOTERM [{provider_key}]")
-        modo_busqueda(ui, provider, args.busqueda, args.episodio, args.skip, args.quality)
+        modo_busqueda(ui, provider, args.busqueda, args.episodio, args.skip, args.quality, ios=args.ios)
         return
 
     while True:
@@ -162,15 +167,17 @@ def main():
             ui.info("¡Hasta luego! 🐱")
             break
         elif opcion == "1":
-            modo_busqueda(ui, active_provider, episodio_range=args.episodio, skip=args.skip, quality=args.quality)
+            modo_busqueda(
+                ui, active_provider, episodio_range=args.episodio, skip=args.skip, quality=args.quality, ios=args.ios
+            )
         elif opcion == "2":
-            modo_biblioteca(ui, active_provider, skip=args.skip, quality=args.quality)
+            modo_biblioteca(ui, active_provider, skip=args.skip, quality=args.quality, ios=args.ios)
         elif opcion == "3":
-            modo_favoritos(ui, active_provider, skip=args.skip, quality=args.quality)
+            modo_favoritos(ui, active_provider, skip=args.skip, quality=args.quality, ios=args.ios)
         elif opcion == "4":
-            modo_watch_later(ui, active_provider, skip=args.skip, quality=args.quality)
+            modo_watch_later(ui, active_provider, skip=args.skip, quality=args.quality, ios=args.ios)
         elif opcion == "5":
-            modo_descubrir(ui, active_provider, skip=args.skip, quality=args.quality)
+            modo_descubrir(ui, active_provider, skip=args.skip, quality=args.quality, ios=args.ios)
         elif opcion == "6":
             modo_providers(ui, PROVIDERS)
 

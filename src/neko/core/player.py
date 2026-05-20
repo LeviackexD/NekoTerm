@@ -44,6 +44,29 @@ def _es_url_directa(url: str) -> bool:
     return any(ext in url_lower for ext in [".mp4", ".m3u8", ".mkv", ".webm", ".avi"])
 
 
+def resolver_stream_ios(url: str, referer: str = "", formato_id: str = "best") -> str | None:
+    """Resuelve la URL del stream y devuelve el URL scheme de VLC para iOS.
+
+    Si yt-dlp está disponible y la URL no es directa, la resuelve primero.
+    Retorna el string 'vlc://<url>' o None si no se pudo resolver.
+    """
+    url_final = url
+    if YTDLP_DISPONIBLE and not _es_url_directa(url):
+        try:
+            cmd = ["yt-dlp", "-g", "-f", formato_id or "best"]
+            if referer:
+                cmd.extend(["--referer", referer])
+            cmd.extend(["--no-warnings", "--quiet", url])
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            if result.returncode == 0 and result.stdout.strip():
+                url_final = result.stdout.strip()
+        except Exception as e:
+            logger.debug("Error resolviendo yt-dlp para iOS: %s", e)
+            return None
+
+    return f"vlc://{url_final}"
+
+
 def obtener_calidades(url: str, referer: str = "") -> list[dict]:
     if not YTDLP_DISPONIBLE:
         return []

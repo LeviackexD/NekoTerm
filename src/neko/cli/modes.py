@@ -29,6 +29,7 @@ from neko.core.player import (
     obtener_calidades,
     reproducir,
     reproducir_background,
+    resolver_stream_ios,
 )
 from neko.core.ui import UI, Colores, menu_seleccionar
 from neko.exceptions import ProviderError, StreamNotFoundError
@@ -158,7 +159,9 @@ def _menu_acciones(prompt: str, acciones: list[tuple[str, str]]) -> str | None:
 # --- FLUJO COMÚN ---
 
 
-def _continuar_con_anime(ui: UI, provider, anime: dict, skip: bool = False, quality: str = "best") -> None:
+def _continuar_con_anime(
+    ui: UI, provider, anime: dict, skip: bool = False, quality: str = "best", ios: bool = False
+) -> None:
     """Flujo comun: cargar episodios y reproducir."""
     ya_fav = es_favorito(anime.get("url", ""))
     if ya_fav:
@@ -193,7 +196,7 @@ def _continuar_con_anime(ui: UI, provider, anime: dict, skip: bool = False, qual
     if not episodio_seleccionado:
         return
     idx_actual = episodios.index(episodio_seleccionado)
-    reproducir_con_navegacion(ui, provider, episodios, idx_actual, anime, skip=skip, quality=quality)
+    reproducir_con_navegacion(ui, provider, episodios, idx_actual, anime, skip=skip, quality=quality, ios=ios)
 
 
 # --- REPRODUCCIÓN ---
@@ -207,8 +210,49 @@ def reproducir_con_navegacion(
     anime: dict,
     skip: bool = False,
     quality: str = "best",
+    ios: bool = False,
 ) -> None:
     """Loop principal de reproducción con menú durante y después."""
+    episodio = episodios[idx_actual]
+    ep_num = episodio.get("numero", "?")
+
+    ui.spinner_start(f"Resolviendo stream de 'Ep.{ep_num}'...")
+    try:
+        url_video = provider.obtener_stream(episodio)
+    except StreamNotFoundError as e:
+        ui.spinner_stop()
+        ui.error(f"No se pudo resolver stream: {e}")
+        logger.debug("StreamNotFoundError: %s", e)
+        return
+    except ProviderError as e:
+        ui.spinner_stop()
+        ui.error(f"Error del provider: {e}")
+        logger.debug("ProviderError en reproducir_con_navegacion: %s", e)
+        return
+    except Exception as e:
+        ui.spinner_stop()
+        ui.error(f"Error al resolver stream: {e}")
+        logger.debug("Error inesperado en reproducir_con_navegacion: %s", e)
+        return
+    finally:
+        ui.spinner_stop()
+
+    if not url_video:
+        ui.error("No se pudo obtener el enlace de video.")
+        return
+
+    if ios:
+        titulo_ep = episodio.get("titulo", f"Ep.{ep_num}")
+        ui.titulo(f"📺 {anime['titulo']} - Ep.{ep_num}")
+        ios_url = resolver_stream_ios(url_video, referer=episodio["url"], formato_id=quality)
+        if ios_url:
+            print(f"  {Colores.DIM}📱 Toca la URL para abrir en VLC{Colores.RESET}")
+            print(f"  {Colores.CYAN}{ios_url}{Colores.RESET}")
+            print()
+        else:
+            ui.error("No se pudo resolver la URL para VLC.")
+        return
+
     while True:
         episodio = episodios[idx_actual]
         ep_num = episodio.get("numero", "?")
@@ -419,9 +463,21 @@ def reproducir_con_watch_later(
     url_video: str,
     skip: bool = False,
     quality: str = "best",
+    ios: bool = False,
 ) -> None:
     """Reproduce un episodio guardando y reanudando posición."""
     titulo = episodio.get("titulo", "")
+
+    if ios:
+        ui.titulo(f"📺 {titulo}")
+        ios_url = resolver_stream_ios(url_video, referer=episodio["url"], formato_id=quality)
+        if ios_url:
+            print(f"  {Colores.DIM}📱 Toca la URL para abrir en VLC{Colores.RESET}")
+            print(f"  {Colores.CYAN}{ios_url}{Colores.RESET}")
+            print()
+        else:
+            ui.error("No se pudo resolver la URL para VLC.")
+        return
 
     pos = obtener_posicion(titulo)
     if pos:
@@ -477,7 +533,7 @@ def modo_providers(ui: UI, providers: dict) -> None:
             ui.exito(f"Provider cambiado a: {providers[nuevo].nombre}")
 
 
-def modo_descubrir(ui: UI, provider, skip: bool = False, quality: str = "best") -> None:
+def modo_descubrir(ui: UI, provider, skip: bool = False, quality: str = "best", ios: bool = False) -> None:
     """Menu de descubrimiento AniList: populares, trending, estrenos, etc."""
     categorias = [
         {"id": "popular", "label": "🔥  Mas Populares", "sort": "POPULARITY_DESC"},
@@ -534,7 +590,7 @@ def modo_descubrir(ui: UI, provider, skip: bool = False, quality: str = "best") 
             anime = ui.seleccionar("Elige un anime", resultados_provider, lambda a: a["titulo"])
             if not anime:
                 continue
-            _continuar_con_anime(ui, provider, anime, skip=skip, quality=quality)
+            _continuar_con_anime(ui, provider, anime, skip=skip, quality=quality, ios=ios)
         else:
             sort = opcion["sort"]
             titulo = opcion["label"].strip()
@@ -570,10 +626,10 @@ def modo_descubrir(ui: UI, provider, skip: bool = False, quality: str = "best") 
             anime = ui.seleccionar("Elige un anime", resultados_provider, lambda a: a["titulo"])
             if not anime:
                 continue
-            _continuar_con_anime(ui, provider, anime, skip=skip, quality=quality)
+            _continuar_con_anime(ui, provider, anime, skip=skip, quality=quality, ios=ios)
 
 
-def modo_continuar(ui: UI, provider) -> None:
+def modo_continuar(ui: UI, provider, ios: bool = False) -> None:
     """Continuar desde el último episodio visto."""
     entradas = obtener_watch_later()
     if not entradas:
@@ -634,7 +690,7 @@ def modo_continuar(ui: UI, provider) -> None:
         idx_encontrado = len(episodios) - 1
         ep_encontrado = episodios[-1]
 
-    reproducir_con_navegacion(ui, provider, episodios, idx_encontrado, anime)
+    reproducir_con_navegacion(ui, provider, episodios, idx_encontrado, anime, ios=ios)
 
 
 def modo_busqueda(
@@ -644,6 +700,7 @@ def modo_busqueda(
     episodio_range: str | None = None,
     skip: bool = False,
     quality: str = "best",
+    ios: bool = False,
 ) -> None:
     """Busqueda y reproduccion."""
     query = query_override or ui.preguntar("🔍 Buscar anime")
@@ -709,12 +766,12 @@ def modo_busqueda(
             ui.error(f"Episodio(s) {episodio_range} no encontrado(s).")
             return
         idx_actual = indices[0]
-        reproducir_con_navegacion(ui, provider, episodios, idx_actual, anime, skip=skip, quality=quality)
+        reproducir_con_navegacion(ui, provider, episodios, idx_actual, anime, skip=skip, quality=quality, ios=ios)
     else:
-        _continuar_con_anime(ui, provider, anime, skip=skip, quality=quality)
+        _continuar_con_anime(ui, provider, anime, skip=skip, quality=quality, ios=ios)
 
 
-def modo_biblioteca(ui: UI, provider, skip: bool = False, quality: str = "best") -> None:
+def modo_biblioteca(ui: UI, provider, skip: bool = False, quality: str = "best", ios: bool = False) -> None:
     series = obtener_series()
     if not series:
         ui.info("No hay series guardadas.")
@@ -787,7 +844,9 @@ def modo_biblioteca(ui: UI, provider, skip: bool = False, quality: str = "best")
                     ui.info("Resolviendo stream...")
                     url_video = provider.obtener_stream(episodio)
                     if url_video:
-                        reproducir_con_watch_later(ui, provider, episodio, url_video, skip=skip, quality=quality)
+                        reproducir_con_watch_later(
+                            ui, provider, episodio, url_video, skip=skip, quality=quality, ios=ios
+                        )
                     else:
                         ui.error("No se pudo obtener el enlace de video.")
             elif resp == "fav":
@@ -807,7 +866,7 @@ def modo_biblioteca(ui: UI, provider, skip: bool = False, quality: str = "best")
                 break
 
 
-def modo_favoritos(ui: UI, provider, skip: bool = False, quality: str = "best") -> None:
+def modo_favoritos(ui: UI, provider, skip: bool = False, quality: str = "best", ios: bool = False) -> None:
     from neko.core.library import obtener_favoritos
 
     favoritos = obtener_favoritos()
@@ -878,7 +937,9 @@ def modo_favoritos(ui: UI, provider, skip: bool = False, quality: str = "best") 
                     ui.info("Resolviendo stream...")
                     url_video = provider.obtener_stream(episodio)
                     if url_video:
-                        reproducir_con_watch_later(ui, provider, episodio, url_video, skip=skip, quality=quality)
+                        reproducir_con_watch_later(
+                            ui, provider, episodio, url_video, skip=skip, quality=quality, ios=ios
+                        )
                     else:
                         ui.error("No se pudo obtener el enlace de video.")
             elif resp == "del":
@@ -890,7 +951,7 @@ def modo_favoritos(ui: UI, provider, skip: bool = False, quality: str = "best") 
                 break
 
 
-def modo_watch_later(ui: UI, provider, skip: bool = False, quality: str = "best") -> None:
+def modo_watch_later(ui: UI, provider, skip: bool = False, quality: str = "best", ios: bool = False) -> None:
     from neko.core.library import eliminar_watch_later
 
     entradas = obtener_watch_later()
@@ -964,7 +1025,9 @@ def modo_watch_later(ui: UI, provider, skip: bool = False, quality: str = "best"
                 ui.info("Resolviendo stream...")
                 url_video = provider.obtener_stream(ep_encontrado)
                 if url_video:
-                    reproducir_con_watch_later(ui, provider, ep_encontrado, url_video, skip=skip, quality=quality)
+                    reproducir_con_watch_later(
+                        ui, provider, ep_encontrado, url_video, skip=skip, quality=quality, ios=ios
+                    )
                 else:
                     ui.error("No se pudo obtener el enlace de video.")
             elif resp == "del":

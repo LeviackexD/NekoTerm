@@ -7,20 +7,41 @@ Features:
   - Cache HTTP con TTL configurable (evita re-scrapear la misma URL)
   - Retry con backoff exponencial (3 intentos por defecto)
   - curl_cffi usa TLS fingerprinting de Chrome real
+  - Fallback a urllib si curl_cffi no está disponible (iOS/iSH)
 """
 
 import time
 
-from curl_cffi import requests
+try:
+    from curl_cffi import requests
+
+    HAS_CURL_CFFI = True
+except ImportError:
+    HAS_CURL_CFFI = False
 
 from neko.utils.logging_setup import get_logger
 
 logger = get_logger("neko.http")
 
-# Sesión con fingerprint de Chrome
-SESSION: requests.Session = requests.Session(impersonate="chrome")
-SESSION.headers.update(
-    {
+if HAS_CURL_CFFI:
+    SESSION: requests.Session = requests.Session(impersonate="chrome")
+    SESSION.headers.update(
+        {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0.0.0 Safari/537.36"
+            ),
+            "Accept-Language": "es-ES,es;q=0.9",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Connection": "keep-alive",
+        }
+    )
+else:
+    SESSION = None
+    import urllib.request
+
+    _DEFAULT_HEADERS = {
         "User-Agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
             "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -28,9 +49,7 @@ SESSION.headers.update(
         ),
         "Accept-Language": "es-ES,es;q=0.9",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Connection": "keep-alive",
     }
-)
 
 # Cache simple: {url: (html, timestamp)}
 _cache: dict[str, tuple[str, float]] = {}
@@ -77,9 +96,14 @@ def get_html(url: str, referer: str = "", timeout: int = 20, retries: int = 3, u
     last_error: Exception = RuntimeError("Unknown error")
     for attempt in range(retries):
         try:
-            resp = SESSION.get(url, headers=headers, timeout=timeout)
-            resp.raise_for_status()
-            html = resp.text
+            if HAS_CURL_CFFI:
+                resp = SESSION.get(url, headers=headers, timeout=timeout)
+                resp.raise_for_status()
+                html = resp.text
+            else:
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, timeout=timeout) as response:
+                    html = response.read().decode("utf-8")
             if use_cache:
                 _cache_set(url, html)
             return html
@@ -103,9 +127,16 @@ def get_json(url: str, referer: str = "", timeout: int = 15, retries: int = 3) -
     last_error: Exception = RuntimeError("Unknown error")
     for attempt in range(retries):
         try:
-            resp = SESSION.get(url, headers=headers, timeout=timeout)
-            resp.raise_for_status()
-            return resp.json()
+            if HAS_CURL_CFFI:
+                resp = SESSION.get(url, headers=headers, timeout=timeout)
+                resp.raise_for_status()
+                return resp.json()
+            else:
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, timeout=timeout) as response:
+                    import json
+
+                    return json.loads(response.read().decode("utf-8"))
         except Exception as e:
             last_error = e
             if attempt < retries - 1:

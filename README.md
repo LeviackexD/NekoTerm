@@ -16,7 +16,7 @@
 [![Python](https://img.shields.io/badge/Python-3.9%2B-3776A8?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/LeviackexD/NekoTerm/ci.yml?style=for-the-badge&logo=github-actions&label=CI)](https://github.com/LeviackexD/NekoTerm/actions)
-[![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Linux%20%7C%20Windows-blue?style=for-the-badge)](#-instalación)
+[![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Linux%20%7C%20Windows%20%7C%20iOS-blue?style=for-the-badge)](#-instalación)
 [![Code Style](https://img.shields.io/badge/Code%20Style-Ruff-5C4BBA?style=for-the-badge&logo=ruff)](https://docs.astral.sh/ruff/)
 [![Type Check](https://img.shields.io/badge/Type%20Check-mypy-5C4BBA?style=for-the-badge&logo=python)](https://mypy.readthedocs.io/)
 
@@ -113,6 +113,36 @@ pip install .
 # o desde cualquier directorio:
 pip install git+https://github.com/LeviackexD/NekoTerm.git
 ```
+
+</details>
+
+<details>
+<summary><strong>📱 iOS</strong> — iSH Shell + VLC (un comando)</summary>
+
+**Requisitos:**
+- [iSH Shell](https://apps.apple.com/app/ish-shell/id1436902243) (gratis en App Store)
+- [VLC for iOS](https://apps.apple.com/app/vlc-media-player/id650377962) (gratis en App Store)
+
+**Instalación:**
+
+```bash
+curl -sSL https://raw.githubusercontent.com/LeviackexD/NekoTerm/main/scripts/install_ios.sh | sh
+```
+
+Cierra iSH, ábrelo de nuevo y ejecuta:
+
+```bash
+neko --ios
+```
+
+**Cómo funciona:**
+
+1. Buscas anime como siempre
+2. Seleccionas episodio
+3. Aparece un enlace `vlc://...`
+4. **Tocas el enlace** → VLC se abre y reproduce automáticamente
+
+> ⚠️ **Nota**: En iSH, `curl_cffi` puede no compilar. NekoTerm usa automáticamente `urllib` como fallback. La resolución de streams funciona de forma nativa para URLs directas (.m3u8).
 
 </details>
 
