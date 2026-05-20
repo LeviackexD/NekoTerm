@@ -89,6 +89,67 @@ ln -s "$(pwd)/neko" /usr/local/bin/neko
 </details>
 
 <details>
+<summary><strong>macOS 12 (Monterey) y anteriores</strong></summary>
+
+Homebrew en macOS 12 requiere Xcode 15+ para compilar fórmulas desde fuente, lo cual no es posible. El instalador automático detecta esto y usa alternativas, pero si prefieres instalar manualmente:
+
+### 1. Instalar Homebrew (si no lo tienes)
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+### 2. Instalar yt-dlp con pip (no requiere Xcode)
+
+```bash
+pip3 install yt-dlp
+```
+
+### 3. Instalar fzf
+
+```bash
+brew install --force-bottle fzf
+# o si falla:
+pip3 install fzf
+```
+
+### 4. Instalar mpv (o usar VLC como alternativa)
+
+Opción A — Intentar con bottle:
+```bash
+brew install --force-bottle mpv
+```
+
+Opción B — Descargar .dmg precompilado:
+- Ve a [mpv.io/install](https://mpv.io/install/) y descarga el .dmg
+- Arrastra mpv a `/Applications`
+- Crea un symlink: `sudo ln -s /Applications/mpv.app/Contents/MacOS/mpv /usr/local/bin/mpv`
+
+Opción C — Usar VLC (NekoTerm lo detecta automáticamente):
+```bash
+brew install --force-bottle vlc
+```
+
+### 5. Instalar Python (si no tienes 3.9+)
+
+```bash
+brew install python3
+```
+
+### 6. Clonar e instalar NekoTerm
+
+```bash
+git clone https://github.com/TU_USUARIO/NekoCLI.git
+cd NekoCLI
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+./neko
+```
+
+</details>
+
+<details>
 <summary><strong>Linux (Debian/Ubuntu)</strong></summary>
 
 ### 1. Instalar dependencias del sistema
@@ -360,6 +421,40 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 echo 'eval "$(/usr/local/bin/brew shellenv)"' >> ~/.zprofile
 eval "$(/usr/local/bin/brew shellenv)"
 ```
+
+</details>
+
+<details>
+<summary><strong>Homebrew requiere Xcode 15 en macOS 12 (Monterey)</strong></summary>
+
+Si ves errores como:
+```
+Xcode 15.0 cannot be installed on macOS 12.
+Error: mpv: An unsatisfied requirement failed this build.
+```
+
+Significa que Homebrew está intentando compilar las fórmulas desde fuente. Soluciones:
+
+1. **Usa el instalador automático** — detecta macOS 12 y usa alternativas automáticamente:
+   ```bash
+   bash scripts/install.sh
+   ```
+
+2. **Instala yt-dlp con pip** (no necesita compilación):
+   ```bash
+   pip3 install yt-dlp
+   ```
+
+3. **Intenta con bottles precompilados:**
+   ```bash
+   brew install --force-bottle mpv fzf
+   ```
+
+4. **Usa VLC como alternativa a mpv:**
+   ```bash
+   brew install --force-bottle vlc
+   ```
+   NekoTerm detecta VLC automáticamente si mpv no está disponible.
 
 </details>
 

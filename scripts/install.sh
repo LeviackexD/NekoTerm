@@ -24,6 +24,9 @@ warn()   { echo -e "${YELLOW}  !${RESET} $1"; }
 err()    { echo -e "${RED}  ✗${RESET} $1"; }
 step()   { echo -e "\n${BOLD}▸ $1${RESET}"; }
 
+# Compatibilidad macOS antiguo
+MODE_COMPAT=false
+
 detect_os() {
     if [[ "$OSTYPE" == "darwin"* ]]; then
         OS="macos"
@@ -40,46 +43,44 @@ detect_os() {
     fi
 }
 
-check_python() {
-    if command -v python3 &>/dev/null; then
-        PY_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null)
-        PY_MAJOR=$(echo "$PY_VERSION" | cut -d. -f1)
-        PY_MINOR=$(echo "$PY_VERSION" | cut -d. -f2)
-        if [[ "$PY_MAJOR" -ge 3 && "$PY_MINOR" -ge 9 ]]; then
-            ok "Python $PY_VERSION encontrado"
-            return 0
-        fi
-    fi
-    return 1
-}
-
-install_python() {
-    case "$OS" in
-        macos)
-            if ! command -v brew &>/dev/null; then
-                step "Instalando Homebrew..."
-                /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-            fi
-            log "Instalando Python..."
-            brew install python3
-            ;;
-        linux)
-            if command -v apt-get &>/dev/null; then
-                log "Instalando Python..."
-                sudo apt-get update -qq
-                sudo apt-get install -y python3 python3-venv python3-pip
-            elif command -v dnf &>/dev/null; then
-                log "Instalando Python..."
-                sudo dnf install -y python3
-            elif command -v pacman &>/dev/null; then
-                log "Instalando Python..."
-                sudo pacman -S --noconfirm python python-pip
-            else
-                err "No se pudo instalar Python automáticamente. Instálalo manualmente: https://python.org"
-                exit 1
-            fi
-            ;;
-    esac
+_instalar_deps_compat_macos() {
+    local deps=("$@")
+    for dep in "${deps[@]}"; do
+        case "$dep" in
+            yt-dlp)
+                if ! command -v yt-dlp &>/dev/null; then
+                    log "Instalando yt-dlp (pip)..."
+                    pip3 install --quiet yt-dlp && ok "yt-dlp instalado" || err "No se pudo instalar yt-dlp"
+                fi
+                ;;
+            fzf)
+                if ! command -v fzf &>/dev/null; then
+                    log "Instalando fzf..."
+                    brew install --force-bottle fzf 2>/dev/null && ok "fzf instalado" || {
+                        warn "fzf no disponible via bottle — instalando con pip"
+                        pip3 install --quiet fzf 2>/dev/null && ok "fzf instalado" || err "No se pudo instalar fzf"
+                    }
+                fi
+                ;;
+            mpv)
+                if ! command -v mpv &>/dev/null; then
+                    log "Intentando instalar mpv (bottle)..."
+                    if brew install --force-bottle mpv 2>/dev/null; then
+                        ok "mpv instalado"
+                    else
+                        warn "mpv no disponible via Homebrew en macOS 12"
+                        warn "Opciones:"
+                        warn "  1. Descarga mpv desde https://mpv.io/install/"
+                        warn "  2. Instala VLC (brew install vlc) como alternativa"
+                        warn "  NekoTerm funcionará con VLC"
+                    fi
+                fi
+                ;;
+            *)
+                brew install --force-bottle "$dep" 2>/dev/null || warn "No se pudo instalar $dep"
+                ;;
+        esac
+    done
 }
 
 install_system_deps() {
@@ -101,7 +102,11 @@ install_system_deps() {
                 step "Instalando Homebrew..."
                 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
             fi
-            brew install ${missing[@]}
+            if [[ "$MODE_COMPAT" == true ]]; then
+                _instalar_deps_compat_macos "${missing[@]}"
+            else
+                brew install ${missing[@]}
+            fi
             ;;
         linux)
             if command -v apt-get &>/dev/null; then
@@ -208,7 +213,15 @@ verify_install() {
         all_ok=false
     fi
 
-    command -v mpv &>/dev/null     && ok "mpv instalado"     || { err "mpv no encontrado"; all_ok=false; }
+    if command -v mpv &>/dev/null; then
+        ok "mpv instalado"
+    elif command -v vlc &>/dev/null; then
+        ok "vlc instalado (alternativa a mpv)"
+    elif [[ "$MODE_COMPAT" == true ]]; then
+        warn "mpv no encontrado — descarga desde https://mpv.io/install/ o usa VLC"
+    else
+        err "mpv no encontrado"; all_ok=false
+    fi
     command -v yt-dlp &>/dev/null  && ok "yt-dlp instalado"  || { err "yt-dlp no encontrado"; all_ok=false; }
     command -v fzf &>/dev/null     && ok "fzf instalado"     || { err "fzf no encontrado"; all_ok=false; }
 
@@ -232,6 +245,10 @@ main() {
 
     detect_os
     log "Sistema detectado: $OS"
+
+    if [[ "$OS" == "macos" ]]; then
+        detectar_macos_version
+    fi
 
     if ! check_python; then
         warn "Python 3.9+ no encontrado"
