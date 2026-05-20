@@ -136,7 +136,7 @@ Navega con **flechas ↑↓** y selecciona con **Enter**.
 neko "naruto"                    # Buscar y elegir episodio
 neko "naruto" -e 5               # Ir directo al episodio 5
 neko "naruto" -e 1-12            # Rango de episodios
-neko -p tioanime "one piece"     # Usar provider específico
+neko -p provider1 "one piece"     # Usar fuente específica
 neko "naruto" -q 720p            # Calidad específica
 neko "naruto" --skip             # Saltar OP/ED
 neko -c                          # Continuar donde lo dejaste
@@ -167,26 +167,13 @@ neko -c                          # Continuar donde lo dejaste
 
 ---
 
-## 🌐 Providers
-
-| Provider | URL | Calidad | Notas |
-|----------|-----|---------|-------|
-| **Jkanime** ⭐ | jkanime.bz | Hasta 1080p | Recomendado, API AJAX, .m3u8 directo |
-| **TioAnime** | tioanime.com | 720p-1080p | Catálogo amplio, estable |
-| **MonosChinos** | monoschinos2.com | Variable | Subtítulos en español |
-| **AnimeFLV** | animeflv.net | Variable | Subtítulos en español latino |
-
-> NekoTerm incluye **auto-fallback**: si el provider principal falla, prueba automáticamente con los demás.
-
----
-
 ## 🛠️ Arquitectura
 
 ```
 Usuario escribe "naruto"
         │
         ▼
-  BÚSQUEDA → Provider → Lista de animes
+  BÚSQUEDA → Fuente → Lista de animes
         │
         ▼
   METADATOS → AniList API → Score, géneros, sinopsis (ES)
@@ -218,10 +205,10 @@ NekoTerm/
 │   │   ├── player.py         # Integración con mpv/yt-dlp
 │   │   └── ui.py             # Interfaz de usuario (fzf, rich)
 │   ├── providers/        # Fuentes de anime
-│   │   ├── jkanime.py
-│   │   ├── tioanime.py
-│   │   ├── monoschinos.py
-│   │   └── animeflv.py
+│   │   ├── provider1.py
+│   │   ├── provider2.py
+│   │   ├── provider3.py
+│   │   └── provider4.py
 │   ├── utils/            # Utilidades compartidas
 │   │   ├── anilist.py    # API de metadatos de anime
 │   │   ├── http.py       # HTTP con curl_cffi + cache
@@ -252,26 +239,13 @@ NekoTerm/
 
 ## 🔄 Cómo funciona la resolución de streams
 
-Las URLs de video en sitios de anime **caducan en segundos**. NekoTerm no descarga URLs estáticas — en su lugar:
+Las URLs de video **caducan en segundos**. NekoTerm no descarga URLs estáticas — en su lugar:
 
 1. **Resuelve el stream en tiempo real** dentro de mpv usando yt-dlp integrado
 2. **yt-dlp negocia con el servidor** en el momento de la reproducción
 3. **La URL nunca caduca** porque se genera al instante
 
 Esto significa que puedes pausar, cambiar de episodio y volver horas después — siempre funciona.
-
----
-
-## 📋 Roadmap
-
-| Versión | Feature | Estado |
-|---------|---------|--------|
-| v1.0 | Búsqueda, 4 providers, mpv, fzf, AniList, favoritos, watch later | ✅ |
-| v1.1 | Auto-fallback, cache HTTP, saltar OP/ED, descubrir anime | ✅ |
-| v1.2 | TUI completa con `textual` | 🔄 |
-| v1.3 | Binarios standalone (PyInstaller) | 📋 |
-| v1.4 | Soporte para más idiomas | 📋 |
-| v1.5 | Sincronización con AniList (mark as watched) | 📋 |
 
 ---
 
