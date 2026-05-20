@@ -158,20 +158,47 @@ WRAPPER
     ok "NekoTerm instalado en $INSTALL_DIR"
 }
 
+setup_path() {
+    if [[ ":$PATH:" == *":$BIN_DIR:"* ]]; then
+        return 0
+    fi
+
+    local shell_rc=""
+    if [[ -f "$HOME/.zshrc" ]]; then
+        shell_rc="$HOME/.zshrc"
+    elif [[ -f "$HOME/.bashrc" ]]; then
+        shell_rc="$HOME/.bashrc"
+    elif [[ -f "$HOME/.bash_profile" ]]; then
+        shell_rc="$HOME/.bash_profile"
+    else
+        shell_rc="$HOME/.zshrc"
+        touch "$shell_rc"
+    fi
+
+    local path_line="export PATH=\"$BIN_DIR:\$PATH\""
+
+    if ! grep -qF "$BIN_DIR" "$shell_rc" 2>/dev/null; then
+        echo "" >> "$shell_rc"
+        echo "# NekoTerm — añadido por el instalador" >> "$shell_rc"
+        echo "$path_line" >> "$shell_rc"
+        log "Añadido $BIN_DIR a PATH en $shell_rc"
+    fi
+
+    export PATH="$BIN_DIR:$PATH"
+}
+
 verify_install() {
     step "Verificando instalación..."
+
+    setup_path
 
     local all_ok=true
 
     if command -v neko &>/dev/null; then
         ok "Comando 'neko' disponible"
     else
-        warn "'neko' no está en PATH"
-        if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
-            log "Añade esto a tu ~/.bashrc o ~/.zshrc:"
-            log "  export PATH=\"$BIN_DIR:\$PATH\""
-            all_ok=false
-        fi
+        err "'neko' no accesible — reinicia la terminal o ejecuta: export PATH=\"$BIN_DIR:\$PATH\""
+        all_ok=false
     fi
 
     if "$INSTALL_DIR/venv/bin/python3" -c "import neko" 2>/dev/null; then
@@ -190,9 +217,6 @@ verify_install() {
         echo -e "${GREEN}${BOLD}🐱 ¡NekoTerm instalado correctamente!${RESET}"
         echo ""
         echo -e "  Ejecuta: ${BOLD}neko${RESET}"
-        echo ""
-        echo -e "  Si 'neko' no funciona, ejecuta: ${BOLD}export PATH=\"$BIN_DIR:\$PATH\"${RESET}"
-        echo -e "  Y añade esa línea a tu ~/.bashrc o ~/.zshrc"
     else
         echo -e "${YELLOW}${BOLD}⚠ Instalación completada con advertencias${RESET}"
         echo -e "  Revisa los mensajes anteriores para solucionar los problemas."
