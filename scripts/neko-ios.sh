@@ -7,7 +7,7 @@ VERSION="1.0.0"
 USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 BASE_URL="https://jkanime.bz"
 PROVIDER_NAME="Jkanime"
-COOKIE_JAR="/tmp/neko_cookies.txt"
+COOKIE_JAR="/tmp/neko_cookies_$$"
 
 # --- UI ---
 die() {
@@ -52,18 +52,11 @@ http_post() {
 buscar() {
     local query="$1"
     local url="${BASE_URL}/buscar/${query}/"
-    local html
-    html=$(http_get "$url" | tr '\n' ' ')
-    [ -z "$html" ] && return 1
 
-    # Extraer links: <a href="https://jkanime.bz/naruto/">Naruto</a>
-    printf "%s" "$html" | grep -oE '<a[[:space:]]+href="https://jkanime\.bz/[^"]+">[^<]+</a>' | while read -r link; do
-        href=$(printf "%s" "$link" | sed 's|.*href="\(https://jkanime\.bz/[^"]*\)".*|\1|')
-        titulo=$(printf "%s" "$link" | sed 's|.*>\([^<]*\)</a>.*|\1|')
-        # Filtrar links irrelevantes
-        case "$href" in
-            */dash/*|*/usuario/*|*/salir*|*#*) continue ;;
-        esac
+    # Pipe directo sin variable intermedia (iSH memory limited)
+    http_get "$url" | tr '\n' ' ' | grep -oE '<h5><a[[:space:]]+href="https://jkanime\.bz/[^"]+">[^<]+</a></h5>' | while read -r match; do
+        href=$(printf "%s" "$match" | sed 's|.*href="\(https://jkanime\.bz/[^"]*\)".*|\1|')
+        titulo=$(printf "%s" "$match" | sed 's|.*>\([^<]*\)</a>.*|\1|')
         [ -n "$titulo" ] && [ ${#titulo} -gt 2 ] && printf "%s\t%s\n" "$href" "$titulo"
     done | head -20
 }
@@ -107,7 +100,7 @@ obtener_episodios() {
     done
 
     printf "%s" "$all_eps" | sort -n | while read -r num; do
-        [ -n "$num" ] && printf "%s\tEp.%s\n" "$num" "$num"
+        [ -n "$num" ] && printf "%s\tEp %s\n" "$num" "$num"
     done
 }
 
@@ -129,7 +122,12 @@ obtener_stream() {
         # Extraer URL del video del JavaScript
         local video_url
         video_url=$(printf "%s" "$player_html" | grep -oE "url: 'https://[^']+'" | head -1 | grep -oE "https://[^']+")
-        [ -n "$video_url" ] && printf "%s" "$video_url" && return 0
+        if [ -n "$video_url" ]; then
+            # Devolvemos la URL intermedia: VLC sigue redirects 302 automáticamente
+            # Las URLs finales (Amazon Drive) expiran en minutos, la intermedia siempre redirige al actual
+            printf "%s" "$video_url"
+            return 0
+        fi
     fi
 
     # Fallback: primer iframe de otros servidores
@@ -155,9 +153,10 @@ print_vlc_link() {
     local url="$1"
     local titulo="$2"
     echo ""
-    printf "\033[1;32m%s\033[0m\n" "  Toca el enlace para abrir en VLC"
-    printf "\033]8;;vlc://%s\a~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n~ %s ~\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~\033]8;;\a\n" "$url" "$titulo"
-    echo ""
+    printf "\033[1;32m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m\n"
+    printf "\033]8;;vlc://%s\a  🎬 Toca aquí para reproducir en VLC  \033]8;;\a\n" "$url"
+    printf "\033[1;32m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m\n"
+    printf "\033[2m  %s\033[0m\n\n" "$titulo"
 }
 
 # --- Main ---
@@ -212,17 +211,17 @@ main() {
     local ep_num
     ep_num=$(printf "%s" "$ep_selected" | cut -f1)
 
-    info "Resolviendo stream de 'Ep.${ep_num}'..."
+    info "Resolviendo stream de 'Ep ${ep_num}'..."
 
     # Get stream URL
     local stream_url
     stream_url=$(obtener_stream "$slug" "$ep_num")
     [ -z "$stream_url" ] && die "No se pudo obtener el enlace de video."
 
-    success "Episodio encontrado: Ep.${ep_num}"
+    success "Episodio encontrado: Ep ${ep_num}"
 
     # Print VLC link
-    print_vlc_link "$stream_url" "${titulo} - Ep.${ep_num}"
+    print_vlc_link "$stream_url" "${titulo} - Ep ${ep_num}"
 
     # Cleanup
     rm -f "$COOKIE_JAR"
