@@ -11,6 +11,7 @@ Features:
 """
 
 import time
+from urllib.parse import urlparse
 
 try:
     from curl_cffi import requests
@@ -38,7 +39,7 @@ if HAS_CURL_CFFI:
         }
     )
 else:
-    SESSION = None
+    SESSION = None  # type: ignore[assignment]
     import urllib.request
 
     _DEFAULT_HEADERS = {
@@ -51,10 +52,20 @@ else:
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     }
 
+# Allowed schemes to prevent SSRF attacks
+_ALLOWED_SCHEMES = {"http", "https"}
+
 # Cache simple: {url: (html, timestamp)}
 _cache: dict[str, tuple[str, float]] = {}
 CACHE_TTL = 300  # 5 minutos
 CACHE_MAX = 50
+
+
+def _validate_url(url: str) -> None:
+    """Valida que la URL use un esquema permitido (http/https)."""
+    parsed = urlparse(url)
+    if parsed.scheme not in _ALLOWED_SCHEMES:
+        raise ValueError(f"URL scheme '{parsed.scheme}' not allowed. Only http/https are permitted.")
 
 
 def _cache_get(url: str) -> str | None:
@@ -84,6 +95,8 @@ def get_html(url: str, referer: str = "", timeout: int = 20, retries: int = 3, u
         retries: Intentos con backoff exponencial
         use_cache: Si True, usa cache para evitar re-scrapear
     """
+    _validate_url(url)
+
     if use_cache:
         cached = _cache_get(url)
         if cached is not None:
@@ -120,6 +133,8 @@ def get_html(url: str, referer: str = "", timeout: int = 20, retries: int = 3, u
 
 def get_json(url: str, referer: str = "", timeout: int = 15, retries: int = 3) -> dict:
     """Hace GET y devuelve JSON con retry."""
+    _validate_url(url)
+
     headers = {}
     if referer:
         headers["Referer"] = referer

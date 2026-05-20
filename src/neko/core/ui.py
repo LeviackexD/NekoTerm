@@ -164,25 +164,41 @@ class UI:
             items.append(f"{num}  {icono}")
 
         tmpfile = None
-        result_file = None
         try:
             with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
                 f.write("\n".join(items))
                 tmpfile = f.name
 
-            result_file = tempfile.mktemp(suffix=".result")
-
             h = _fzf_height()
-            cmd = f'fzf --prompt " NEKOTERM > " --height {h} --layout reverse --border rounded --color "prompt:cyan,pointer:magenta,border:cyan" --no-info --no-multi < "{tmpfile}" > "{result_file}" 2>/dev/tty'
+            fzf_cmd = [
+                "fzf",
+                "--prompt",
+                " NEKOTERM > ",
+                "--height",
+                str(h),
+                "--layout",
+                "reverse",
+                "--border",
+                "rounded",
+                "--color",
+                "prompt:cyan,pointer:magenta,border:cyan",
+                "--no-info",
+                "--no-multi",
+            ]
 
-            ret = os.system(cmd)
-
-            if ret != 0:
+            try:
+                with open(tmpfile) as stdin_f:
+                    result = subprocess.run(
+                        fzf_cmd,
+                        stdin=stdin_f,
+                        capture_output=True,
+                        text=True,
+                        timeout=60,
+                    )
+            except (subprocess.TimeoutExpired, FileNotFoundError):
                 return "0"
 
-            with open(result_file) as f:
-                seleccionado = f.read().strip()
-
+            seleccionado = result.stdout.strip()
             if not seleccionado:
                 return "0"
 
@@ -193,8 +209,6 @@ class UI:
         finally:
             if tmpfile and os.path.exists(tmpfile):
                 os.unlink(tmpfile)
-            if result_file and os.path.exists(result_file):
-                os.unlink(result_file)
 
     def _menu_texto(self, opciones: list) -> str:
         while True:
@@ -247,25 +261,42 @@ class UI:
                 items.append(f"  {label}")
 
         tmpfile = None
-        result_file = None
         try:
             with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
                 f.write("\n".join(items))
                 tmpfile = f.name
 
-            result_file = tempfile.mktemp(suffix=".result")
-
             h = _fzf_height(footer_lines=3)
-            cmd = f'fzf --prompt " {prompt} > " --height {h} --layout reverse --border rounded --color "prompt:cyan,pointer:magenta,border:cyan" --no-info --no-multi --ansi < "{tmpfile}" > "{result_file}" 2>/dev/tty'
+            fzf_cmd = [
+                "fzf",
+                "--prompt",
+                f" {prompt} > ",
+                "--height",
+                str(h),
+                "--layout",
+                "reverse",
+                "--border",
+                "rounded",
+                "--color",
+                "prompt:cyan,pointer:magenta,border:cyan",
+                "--no-info",
+                "--no-multi",
+                "--ansi",
+            ]
 
-            ret = os.system(cmd)
-
-            if ret != 0:
+            try:
+                with open(tmpfile) as stdin_f:
+                    result = subprocess.run(
+                        fzf_cmd,
+                        stdin=stdin_f,
+                        capture_output=True,
+                        text=True,
+                        timeout=60,
+                    )
+            except (subprocess.TimeoutExpired, FileNotFoundError):
                 return None
 
-            with open(result_file) as f:
-                seleccionado = f.read().strip()
-
+            seleccionado = result.stdout.strip()
             if not seleccionado:
                 return None
 
@@ -281,8 +312,6 @@ class UI:
         finally:
             if tmpfile and os.path.exists(tmpfile):
                 os.unlink(tmpfile)
-            if result_file and os.path.exists(result_file):
-                os.unlink(result_file)
 
     def _seleccionar_episodios_tabla(self, prompt: str, episodios: list, vistos: set, label_fn) -> dict | None:
         """Tabla numerada con indicador de vistos."""
@@ -322,37 +351,54 @@ class UI:
         items = [label_fn(op) for op in opciones]
 
         tmpfile = None
-        result_file = None
         try:
             with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
                 f.write("\n".join(items))
                 tmpfile = f.name
 
-            result_file = tempfile.mktemp(suffix=".result")
-
             h = _fzf_height(footer_lines=3)
-            cmd = f'fzf --prompt " {prompt} > " --height {h} --layout reverse --border rounded --color "prompt:cyan,pointer:magenta,border:cyan" --no-info --no-multi < "{tmpfile}" > "{result_file}" 2>/dev/tty'
+            fzf_cmd = [
+                "fzf",
+                "--prompt",
+                f" {prompt} > ",
+                "--height",
+                str(h),
+                "--layout",
+                "reverse",
+                "--border",
+                "rounded",
+                "--color",
+                "prompt:cyan,pointer:magenta,border:cyan",
+                "--no-info",
+                "--no-multi",
+            ]
 
-            ret = os.system(cmd)
-
-            if ret != 0:
+            try:
+                with open(tmpfile) as stdin_f:
+                    result = subprocess.run(
+                        fzf_cmd,
+                        stdin=stdin_f,
+                        capture_output=True,
+                        text=True,
+                        timeout=60,
+                    )
+            except (subprocess.TimeoutExpired, FileNotFoundError):
                 return None
 
-            with open(result_file) as f:
-                seleccionado = f.read().strip()
-
+            seleccionado = result.stdout.strip()
             if not seleccionado:
                 return None
 
-            idx = items.index(seleccionado)
-            return opciones[idx]
+            try:
+                idx = items.index(seleccionado)
+                return opciones[idx]
+            except ValueError:
+                return None
         except (OSError, ValueError):
             return None
         finally:
             if tmpfile and os.path.exists(tmpfile):
                 os.unlink(tmpfile)
-            if result_file and os.path.exists(result_file):
-                os.unlink(result_file)
 
     def _seleccionar_tabla(self, prompt: str, opciones: list, label_fn) -> dict | None:
         print(f"\n  {Colores.CYAN}{Colores.BOLD}{prompt}{Colores.RESET}")
@@ -457,25 +503,41 @@ def _menu_dmenu(prompt: str, items: list[str], nums: list[str]) -> str | None:
 
 def _menu_fzf_unificado(prompt: str, items: list[str], nums: list[str]) -> str | None:
     tmpfile = None
-    result_file = None
     try:
         with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write("\n".join(items))
             tmpfile = f.name
 
-        result_file = tempfile.mktemp(suffix=".result")
-
         h = _fzf_height(footer_lines=3)
-        cmd = f'fzf --prompt " {prompt} > " --height {h} --layout reverse --border rounded --color "prompt:cyan,pointer:magenta,border:cyan" --no-info --no-multi < "{tmpfile}" > "{result_file}" 2>/dev/tty'
+        fzf_cmd = [
+            "fzf",
+            "--prompt",
+            f" {prompt} > ",
+            "--height",
+            str(h),
+            "--layout",
+            "reverse",
+            "--border",
+            "rounded",
+            "--color",
+            "prompt:cyan,pointer:magenta,border:cyan",
+            "--no-info",
+            "--no-multi",
+        ]
 
-        ret = os.system(cmd)
-
-        if ret != 0:
+        try:
+            with open(tmpfile) as stdin_f:
+                result = subprocess.run(
+                    fzf_cmd,
+                    stdin=stdin_f,
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                )
+        except (subprocess.TimeoutExpired, FileNotFoundError):
             return None
 
-        with open(result_file) as f:
-            seleccionado = f.read().strip()
-
+        seleccionado = result.stdout.strip()
         if not seleccionado:
             return None
 
@@ -487,8 +549,6 @@ def _menu_fzf_unificado(prompt: str, items: list[str], nums: list[str]) -> str |
     finally:
         if tmpfile and os.path.exists(tmpfile):
             os.unlink(tmpfile)
-        if result_file and os.path.exists(result_file):
-            os.unlink(result_file)
     return None
 
 

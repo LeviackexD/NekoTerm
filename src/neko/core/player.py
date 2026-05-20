@@ -14,6 +14,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 
 from neko.core.library import guardar_posicion, obtener_posicion
 from neko.utils.helpers import titulo_a_hash
@@ -50,6 +51,8 @@ def resolver_stream_ios(url: str, referer: str = "", formato_id: str = "best") -
     Si yt-dlp está disponible y la URL no es directa, la resuelve primero.
     Retorna el string 'vlc://<url>' o None si no se pudo resolver.
     """
+    from urllib.parse import urlparse
+
     url_final = url
     if YTDLP_DISPONIBLE and not _es_url_directa(url):
         try:
@@ -63,6 +66,11 @@ def resolver_stream_ios(url: str, referer: str = "", formato_id: str = "best") -
         except Exception as e:
             logger.debug("Error resolviendo yt-dlp para iOS: %s", e)
             return None
+
+    parsed = urlparse(url_final)
+    if parsed.scheme not in ("http", "https"):
+        logger.debug("URL scheme no válido para iOS: %s", parsed.scheme)
+        return None
 
     return f"vlc://{url_final}"
 
@@ -206,7 +214,7 @@ def reproducir(
     if nombre == "mpv":
         cmd = _construir_cmd_mpv(url, titulo, referer, formato_id, start_pos, skip_args)
 
-        log_file = "/tmp/neko_pos_$$"
+        log_file = os.path.join(tempfile.gettempdir(), f"neko_pos_{titulo_a_hash(titulo)}")
         try:
             with open(log_file, "w") as log:
                 subprocess.run(cmd, stdout=log, stderr=subprocess.DEVNULL)
