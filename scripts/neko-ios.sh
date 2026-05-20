@@ -10,9 +10,8 @@ PROVIDER_NAME="Jkanime"
 COOKIE_JAR="/tmp/neko_cookies_$$"
 
 # --- UI ---
-die() {
+err_msg() {
     printf "\033[1;31m✗ %s\033[0m\n" "$*" >&2
-    exit 1
 }
 
 info() {
@@ -28,24 +27,25 @@ fzf_select() {
     local input
     input=$(cat)
     [ -z "$input" ] && return 1
-    line_count=$(printf "%s" "$input" | wc -l | tr -d "[:space:]")
+    line_count=$(printf "%s\n" "$input" | wc -l | tr -d "[:space:]")
     [ "$line_count" -eq 1 ] && printf "%s" "$input" && return 0
-    printf "%s" "$input" | fzf --prompt " ${prompt} > " --height 15 --layout reverse --border rounded --cycle
+    # --delimiter con tab --with-nth=2 muestra solo la columna del título
+    printf "%s" "$input" | fzf --prompt " ${prompt} > " --height 15 --layout reverse --border rounded --cycle --delimiter="$(printf '\t')" --with-nth=2
 }
 
 # --- HTTP ---
 http_get() {
-    curl -s -c "$COOKIE_JAR" -b "$COOKIE_JAR" -A "$USER_AGENT" -H "Accept-Language: es-ES,es;q=0.9" "$1"
+    curl -s --keepalive-time 60 -c "$COOKIE_JAR" -b "$COOKIE_JAR" -A "$USER_AGENT" -H "Accept-Language: es-ES,es;q=0.9" "$1"
 }
 
 http_get_ref() {
-    curl -s -c "$COOKIE_JAR" -b "$COOKIE_JAR" -A "$USER_AGENT" -H "Accept-Language: es-ES,es;q=0.9" -e "$2" "$1"
+    curl -s --keepalive-time 60 -c "$COOKIE_JAR" -b "$COOKIE_JAR" -A "$USER_AGENT" -H "Accept-Language: es-ES,es;q=0.9" -e "$2" "$1"
 }
 
 http_post() {
     local url="$1"
     local csrf="$2"
-    curl -s -c "$COOKIE_JAR" -b "$COOKIE_JAR" -A "$USER_AGENT" -H "Accept-Language: es-ES,es;q=0.9" -H "X-CSRF-TOKEN: ${csrf}" -H "X-Requested-With: XMLHttpRequest" -X POST "$url"
+    curl -s --keepalive-time 60 -c "$COOKIE_JAR" -b "$COOKIE_JAR" -A "$USER_AGENT" -H "Accept-Language: es-ES,es;q=0.9" -H "X-CSRF-TOKEN: ${csrf}" -H "X-Requested-With: XMLHttpRequest" -X POST "$url"
 }
 
 # --- Provider: JKanime ---
@@ -53,8 +53,8 @@ buscar() {
     local query="$1"
     local url="${BASE_URL}/buscar/${query}/"
 
-    # Pipe directo sin variable intermedia (iSH memory limited)
-    http_get "$url" | tr '\n' ' ' | grep -oE '<h5><a[[:space:]]+href="https://jkanime\.bz/[^"]+">[^<]+</a></h5>' | while read -r match; do
+    # grep primero (filtra líneas relevantes), sin aplanar todo el HTML
+    http_get "$url" | grep -oE '<h5><a[[:space:]]+href="https://jkanime\.bz/[^"]+">[^<]+</a></h5>' | while read -r match; do
         href=$(printf "%s" "$match" | sed 's|.*href="\(https://jkanime\.bz/[^"]*\)".*|\1|')
         titulo=$(printf "%s" "$match" | sed 's|.*>\([^<]*\)</a>.*|\1|')
         [ -n "$titulo" ] && [ ${#titulo} -gt 2 ] && printf "%s\t%s\n" "$href" "$titulo"
@@ -68,38 +68,20 @@ obtener_episodios() {
     html=$(http_get "$url")
     [ -z "$html" ] && return 1
 
-    # Obtener CSRF token
-    local csrf
-    csrf=$(printf "%s" "$html" | grep -oE 'csrf-token"[[:space:]]+content="[^"]+' | head -1 | grep -oE 'content="[^"]+' | sed 's/content="//')
-    [ -z "$csrf" ] && return 1
-
-    # Obtener anime ID
-    local anime_id
+    # Obtener CSRF token y anime ID en un solo parseo
+    local csrf anime_id
+    csrf=$(printf "%s" "$html" | grep -oE 'csrf-token"[[:space:]]+content="[^"]+' | head -1 | sed 's/.*content="//')
     anime_id=$(printf "%s" "$html" | grep -oE 'ajax/episodes/[0-9]+' | head -1 | grep -oE '[0-9]+')
-    [ -z "$anime_id" ] && return 1
+    [ -z "$csrf" ] || [ -z "$anime_id" ] && return 1
 
-    # Llamar a API AJAX con paginación
-    local page=1
-    local all_eps=""
-    while true; do
-        local resp
-        resp=$(http_post "${BASE_URL}/ajax/episodes/${anime_id}/?p=${page}" "$csrf")
-        [ -z "$resp" ] && break
+    # Solo página 1 (la mayoría de animes caben aquí, ~16 eps por página)
+    # Para animes largos, el usuario puede buscar por número en fzf
+    local resp
+    resp=$(http_post "${BASE_URL}/ajax/episodes/${anime_id}/?p=1" "$csrf")
+    [ -z "$resp" ] && return 1
 
-        # Extraer números de episodio del JSON
-        local eps
-        eps=$(printf "%s" "$resp" | grep -oE '"number":[[:space:]]*[0-9]+' | grep -oE '[0-9]+')
-        [ -z "$eps" ] && break
-
-        all_eps="${all_eps}${eps}
-"
-        # Check if there's a next page
-        printf "%s" "$resp" | grep -q '"next_page_url":null' && break
-        page=$((page + 1))
-        [ "$page" -gt 20 ] && break
-    done
-
-    printf "%s" "$all_eps" | sort -n | while read -r num; do
+    # Extraer números de episodio del JSON
+    printf "%s" "$resp" | grep -oE '"number":[[:space:]]*[0-9]+' | grep -oE '[0-9]+' | sort -n | while read -r num; do
         [ -n "$num" ] && printf "%s\tEp %s\n" "$num" "$num"
     done
 }
@@ -124,7 +106,6 @@ obtener_stream() {
         video_url=$(printf "%s" "$player_html" | grep -oE "url: 'https://[^']+'" | head -1 | grep -oE "https://[^']+")
         if [ -n "$video_url" ]; then
             # Devolvemos la URL intermedia: VLC sigue redirects 302 automáticamente
-            # Las URLs finales (Amazon Drive) expiran en minutos, la intermedia siempre redirige al actual
             printf "%s" "$video_url"
             return 0
         fi
@@ -159,75 +140,99 @@ print_vlc_link() {
     printf "\033[2m  %s\033[0m\n\n" "$titulo"
 }
 
-# --- Main ---
+# --- Main loop ---
 main() {
     printf "\033[96m\033[1m  NekoTerm iOS v%s\033[0m\n" "$VERSION"
     printf "\033[2m  Anime en español desde tu terminal — Provider: %s\033[0m\n\n" "$PROVIDER_NAME"
 
     # Check deps
     for dep in curl grep sed fzf; do
-        command -v "$dep" >/dev/null || die "Dependencia no encontrada: $dep"
+        command -v "$dep" >/dev/null || { err_msg "Dependencia no encontrada: $dep"; exit 1; }
     done
 
     # Init cookie jar
     : > "$COOKIE_JAR"
 
-    # Query
-    local query="${1:-}"
-    if [ -z "$query" ]; then
-        printf "  \033[93m?\033[0m Buscar anime: "
-        read -r query
-        [ -z "$query" ] && exit 0
-    fi
+    local query=""
 
-    info "Buscando '${query}' en ${PROVIDER_NAME}..."
+    while true; do
+        # Query
+        if [ -z "$query" ]; then
+            printf "  \033[93m?\033[0m Buscar anime: "
+            read -r query
+            [ -z "$query" ] && continue
+        fi
 
-    # Search
-    local results
-    results=$(buscar "$(printf "%s" "$query" | tr ' ' '%20')")
-    [ -z "$results" ] && die "No se encontraron resultados."
+        info "Buscando '${query}' en ${PROVIDER_NAME}..."
 
-    # Select anime
-    local selected
-    selected=$(printf "%s" "$results" | fzf_select "Elige un anime")
-    [ -z "$selected" ] && exit 0
+        # Search
+        local results
+        results=$(buscar "$(printf "%s" "$query" | tr ' ' '%20')")
+        if [ -z "$results" ]; then
+            err_msg "No se encontraron resultados para '${query}'."
+            query=""
+            continue
+        fi
 
-    local slug titulo
-    slug=$(printf "%s" "$selected" | cut -f1 | sed "s|${BASE_URL}/||;s|/$||")
-    titulo=$(printf "%s" "$selected" | cut -f2)
+        # Select anime
+        local selected
+        selected=$(printf "%s" "$results" | fzf_select "Elige un anime")
+        if [ -z "$selected" ]; then
+            query=""
+            continue
+        fi
 
-    info "Cargando episodios de '${titulo}'..."
+        local slug titulo
+        slug=$(printf "%s" "$selected" | cut -f1 | sed "s|${BASE_URL}/||;s|/$||")
+        titulo=$(printf "%s" "$selected" | cut -f2)
 
-    # Get episodes
-    local eps
-    eps=$(obtener_episodios "$slug")
-    [ -z "$eps" ] && die "No se encontraron episodios."
+        info "Cargando episodios de '${titulo}'..."
 
-    # Select episode
-    local ep_selected
-    ep_selected=$(printf "%s" "$eps" | fzf_select "${titulo} - Elige episodio")
-    [ -z "$ep_selected" ] && exit 0
+        # Get episodes
+        local eps
+        eps=$(obtener_episodios "$slug")
+        if [ -z "$eps" ]; then
+            err_msg "No se encontraron episodios para '${titulo}'."
+            query=""
+            continue
+        fi
 
-    local ep_num
-    ep_num=$(printf "%s" "$ep_selected" | cut -f1)
+        # Select episode
+        local ep_selected
+        ep_selected=$(printf "%s" "$eps" | fzf_select "${titulo} - Elige episodio")
+        if [ -z "$ep_selected" ]; then
+            query=""
+            continue
+        fi
 
-    info "Resolviendo stream de 'Ep ${ep_num}'..."
+        local ep_num
+        ep_num=$(printf "%s" "$ep_selected" | cut -f1)
 
-    # Get stream URL
-    local stream_url
-    stream_url=$(obtener_stream "$slug" "$ep_num")
-    [ -z "$stream_url" ] && die "No se pudo obtener el enlace de video."
+        info "Resolviendo stream de 'Ep ${ep_num}'..."
 
-    success "Episodio encontrado: Ep ${ep_num}"
+        # Get stream URL
+        local stream_url
+        stream_url=$(obtener_stream "$slug" "$ep_num")
+        if [ -z "$stream_url" ]; then
+            err_msg "No se pudo obtener el enlace de video para 'Ep ${ep_num}'."
+            query=""
+            continue
+        fi
 
-    # Print VLC link
-    print_vlc_link "$stream_url" "${titulo} - Ep ${ep_num}"
+        success "Episodio encontrado: Ep ${ep_num}"
 
-    # Cleanup
-    rm -f "$COOKIE_JAR"
+        # Print VLC link
+        print_vlc_link "$stream_url" "${titulo} - Ep ${ep_num}"
 
-    # Wait so user can see the link
-    sleep 5
+        # Wait so user can see the link
+        sleep 3
+
+        # Clear query para próxima iteración
+        query=""
+    done
 }
+
+# Cleanup on exit
+trap 'rm -f "$COOKIE_JAR"' EXIT
 
 main "$@"
