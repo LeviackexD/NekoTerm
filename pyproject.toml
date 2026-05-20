@@ -1,0 +1,112 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nekoterm"
+version = "1.0.0"
+description = "Buscador y reproductor de anime desde la terminal, en español"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [
+    {name = "LeviackexD"}
+]
+keywords = ["anime", "terminal", "streaming", "mpv", "cli", "spanish"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Multimedia :: Video",
+    "Topic :: Terminals",
+    "Natural Language :: Spanish",
+]
+
+[project.urls]
+Homepage = "https://github.com/LeviackexD/NekoTerm"
+Repository = "https://github.com/LeviackexD/NekoTerm"
+Documentation = "https://github.com/LeviackexD/NekoTerm/tree/main/docs"
+Issues = "https://github.com/LeviackexD/NekoTerm/issues"
+dependencies = [
+    "beautifulsoup4>=4.12.0",
+    "curl_cffi>=0.6.0",
+    "lxml>=5.0.0",
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
+    "pytest>=8.0.0",
+    "responses>=0.25.0",
+]
+
+[project.scripts]
+neko = "neko.cli:main"
+nekoterm = "neko.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+neko = ["*.md"]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 120
+src = ["src"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort (import sorting)
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "SIM",    # flake8-simplify
+    "RUF",    # ruff-specific rules
+    "TID",    # flake8-tidy-imports
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "E402",   # module level import not at top of file (docstrings come first)
+    "B008",   # do not perform function call in argument defaults (common in FastAPI/CLI)
+    "SIM105", # use contextlib.suppress (less readable)
+    "B023",   # function definition does not bind loop variable (intentional closures)
+    "RUF012", # mutable default value for class attribute (intentional for headers)
+    "SIM115", # use context manager for open (file kept open for mpv log)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["neko"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = false
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+ignore_missing_imports = true
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = "neko.providers.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "neko.cli"
+ignore_errors = true
