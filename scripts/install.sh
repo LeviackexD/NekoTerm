@@ -216,7 +216,8 @@ verify_install() {
     if $all_ok; then
         echo -e "${GREEN}${BOLD}🐱 ¡NekoTerm instalado correctamente!${RESET}"
         echo ""
-        echo -e "  Ejecuta: ${BOLD}neko${RESET}"
+        echo -e "  Cierra la terminal y abre una nueva para que los cambios surtan efecto."
+        echo -e "  Luego ejecuta: ${BOLD}neko${RESET}"
     else
         echo -e "${YELLOW}${BOLD}⚠ Instalación completada con advertencias${RESET}"
         echo -e "  Revisa los mensajes anteriores para solucionar los problemas."
