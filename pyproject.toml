@@ -29,12 +29,6 @@ classifiers = [
     "Topic :: Terminals",
     "Natural Language :: Spanish",
 ]
-
-[project.urls]
-Homepage = "https://github.com/LeviackexD/NekoTerm"
-Repository = "https://github.com/LeviackexD/NekoTerm"
-Documentation = "https://github.com/LeviackexD/NekoTerm/tree/main/docs"
-Issues = "https://github.com/LeviackexD/NekoTerm/issues"
 dependencies = [
     "beautifulsoup4>=4.12.0",
     "curl_cffi>=0.6.0",
@@ -49,6 +43,12 @@ dev = [
     "pytest>=8.0.0",
     "responses>=0.25.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/LeviackexD/NekoTerm"
+Repository = "https://github.com/LeviackexD/NekoTerm"
+Documentation = "https://github.com/LeviackexD/NekoTerm/tree/main/docs"
+Issues = "https://github.com/LeviackexD/NekoTerm/issues"
 
 [project.scripts]
 neko = "neko.cli:main"
@@ -67,24 +67,24 @@ src = ["src"]
 
 [tool.ruff.lint]
 select = [
-    "E",      # pycodestyle errors
-    "W",      # pycodestyle warnings
-    "F",      # pyflakes
-    "I",      # isort (import sorting)
-    "UP",     # pyupgrade
-    "B",      # flake8-bugbear
-    "SIM",    # flake8-simplify
-    "RUF",    # ruff-specific rules
-    "TID",    # flake8-tidy-imports
+    "E",
+    "W",
+    "F",
+    "I",
+    "UP",
+    "B",
+    "SIM",
+    "RUF",
+    "TID",
 ]
 ignore = [
-    "E501",   # line too long (handled by formatter)
-    "E402",   # module level import not at top of file (docstrings come first)
-    "B008",   # do not perform function call in argument defaults (common in FastAPI/CLI)
-    "SIM105", # use contextlib.suppress (less readable)
-    "B023",   # function definition does not bind loop variable (intentional closures)
-    "RUF012", # mutable default value for class attribute (intentional for headers)
-    "SIM115", # use context manager for open (file kept open for mpv log)
+    "E501",
+    "E402",
+    "B008",
+    "SIM105",
+    "B023",
+    "RUF012",
+    "SIM115",
 ]
 
 [tool.ruff.lint.isort]
