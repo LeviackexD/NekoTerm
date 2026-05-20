@@ -30,14 +30,18 @@ chmod +x "$SCRIPT_PATH"
 
 echo -e "${GREEN}  ✓${RESET} NekoTerm iOS listo"
 
+echo -e "${CYAN}  ·${RESET} Creando comando 'neko'..."
+cat > /usr/local/bin/neko << 'NEKO_EOF'
+#!/bin/bash
+exec bash "$HOME/.neko-ios.sh" "$@"
+NEKO_EOF
+chmod +x /usr/local/bin/neko
+
+echo -e "${GREEN}  ✓${RESET} Comando 'neko' disponible"
+
 echo ""
 echo -e "${GREEN}${BOLD}🐱 ¡Listo!${RESET}"
 echo ""
-echo -e "  Ejecuta: ${BOLD}bash $SCRIPT_PATH${RESET}"
-echo ""
-echo -e "  O crea un alias:"
-echo -e "    ${BOLD}echo 'alias neko=\"bash $SCRIPT_PATH\"' >> ~/.profile${RESET}"
-echo -e "    ${BOLD}source ~/.profile${RESET}"
-echo -e "    ${BOLD}neko${RESET}"
+echo -e "  Ejecuta: ${BOLD}neko${RESET}"
 echo ""
 echo -e "  Requiere VLC instalado desde la App Store."
