@@ -1,78 +1,43 @@
 #!/bin/bash
-# scripts/install_ios.sh — Instalación de NekoTerm en iOS (iSH Shell + VLC)
+# scripts/install_ios.sh — Instalador de NekoTerm para iOS (iSH)
+# Instala deps mínimas y descarga el script neko-ios.sh
 # Uso: curl -sSL https://raw.githubusercontent.com/LeviackexD/NekoTerm/main/scripts/install_ios.sh | sh
-#   o: bash scripts/install_ios.sh
 
 set -e
 
 CYAN='\033[96m'
 GREEN='\033[92m'
-YELLOW='\033[93m'
-RED='\033[91m'
 BOLD='\033[1m'
 RESET='\033[0m'
 
-log()    { echo -e "${CYAN}  ·${RESET} $1"; }
-ok()     { echo -e "${GREEN}  ✓${RESET} $1"; }
-warn()   { echo -e "${YELLOW}  !${RESET} $1"; }
-err()    { echo -e "${RED}  ✗${RESET} $1"; }
-step()   { echo -e "\n${BOLD}▸ $1${RESET}"; }
-
 echo -e "${CYAN}${BOLD}"
-echo "🐱 NekoTerm — Instalador para iOS (iSH)"
+echo "🐱 NekoTerm iOS — Instalador"
 echo -e "   Versión 1.0.0${RESET}"
 echo ""
 
-step "Actualizando paquetes..."
-apk update -q
-apk upgrade -q
+echo -e "${CYAN}  ·${RESET} Instalando dependencias..."
+apk update -q >/dev/null 2>&1
+apk add curl grep sed fzf -q >/dev/null 2>&1
 
-step "Instalando dependencias del sistema..."
-apk add python3 py3-pip fzf git curl build-base linux-headers grep ncurses
+echo -e "${GREEN}  ✓${RESET} Dependencias instaladas"
 
-step "Clonando NekoTerm..."
-if [ -d "$HOME/NekoTerm" ]; then
-    log "Directorio existente encontrado, actualizando..."
-    cd "$HOME/NekoTerm"
-    git pull origin main 2>/dev/null || true
-else
-    git clone --depth 1 https://github.com/LeviackexD/NekoTerm.git "$HOME/NekoTerm"
-    cd "$HOME/NekoTerm"
-fi
+SCRIPT_URL="https://raw.githubusercontent.com/LeviackexD/NekoTerm/main/scripts/neko-ios.sh"
+SCRIPT_PATH="$HOME/.neko-ios.sh"
 
-step "Instalando dependencias de Python..."
-pip3 install --quiet beautifulsoup4 lxml rich
+echo -e "${CYAN}  ·${RESET} Descargando NekoTerm iOS..."
+curl -sSL "$SCRIPT_URL" -o "$SCRIPT_PATH"
+chmod +x "$SCRIPT_PATH"
 
-log "Intentando instalar curl_cffi (puede fallar en iSH)..."
-if pip3 install --quiet curl_cffi 2>/dev/null; then
-    ok "curl_cffi instalado"
-else
-    warn "curl_cffi no disponible, se usará fallback urllib"
-fi
-
-log "Intentando instalar yt-dlp (opcional, mejora resolución de streams)..."
-if pip3 install --quiet yt-dlp 2>/dev/null; then
-    ok "yt-dlp instalado"
-else
-    warn "yt-dlp no disponible, se usarán URLs directas"
-fi
-
-step "Creando alias..."
-if ! grep -q "alias neko=" "$HOME/.profile" 2>/dev/null; then
-    echo "" >> "$HOME/.profile"
-    echo "# NekoTerm — añadido por el instalador" >> "$HOME/.profile"
-    echo 'alias neko="python3 $HOME/NekoTerm/src/neko"' >> "$HOME/.profile"
-    log "Alias 'neko' añadido a ~/.profile"
-else
-    log "Alias 'neko' ya existe"
-fi
-
-export PATH="$HOME/.local/bin:$PATH"
+echo -e "${GREEN}  ✓${RESET} NekoTerm iOS listo"
 
 echo ""
-echo -e "${GREEN}${BOLD}🐱 ¡NekoTerm instalado correctamente!${RESET}"
+echo -e "${GREEN}${BOLD}🐱 ¡Listo!${RESET}"
 echo ""
-echo -e "  Cierra iSH y ábrelo de nuevo para que el alias funcione."
-echo -e "  Luego ejecuta: ${BOLD}neko --ios${RESET}"
+echo -e "  Ejecuta: ${BOLD}bash $SCRIPT_PATH${RESET}"
+echo ""
+echo -e "  O crea un alias:"
+echo -e "    ${BOLD}echo 'alias neko=\"bash $SCRIPT_PATH\"' >> ~/.profile${RESET}"
+echo -e "    ${BOLD}source ~/.profile${RESET}"
+echo -e "    ${BOLD}neko${RESET}"
 echo ""
 echo -e "  Requiere VLC instalado desde la App Store."
